@@ -1515,7 +1515,7 @@ function _startBoss(opt){
 $('#btnBossEnd').onclick=()=>{ if(bossStop){ bossStop(); bossStop=null; } startEnding(); };
 
 /* ================== 終章 ================== */
-let endStarted=false, bonusOn=false, credWatch=0;
+let endStarted=false, bonusOn=false, credWatch=0, bonusVid=null;
 function stopCredWatch(){ if(credWatch){ cancelAnimationFrame(credWatch); credWatch=0; } }
 function startEnding(){
   stopCredWatch(); bonusOn=false; { const cc=$('#credits'); cc.style.transition='none'; cc.style.opacity='1'; const e2=$('#endvid'); e2.style.transition='none'; e2.style.opacity='1'; }
@@ -1529,6 +1529,8 @@ function startEnding(){
     v.onerror=()=>startCredits(); v.onended=()=>startCredits();
     v.src=CONFIG.endingVideo; ev.appendChild(v);
     const p=v.play(); if(p&&p.catch)p.catch(()=>{});
+    // 在這次點擊（使用者手勢）裡先「解鎖」第二支影片：iOS／Chrome 之後才能不經點擊自動播放
+    try{ bonusVid=document.createElement('video'); bonusVid.playsInline=true; bonusVid.preload='auto'; bonusVid.src=CONFIG.endingVideo2; const q=bonusVid.play(); if(q&&q.then) q.then(()=>{ bonusVid.pause(); }).catch(()=>{}); }catch(e){}
   }));
   openModal(w);
 }
@@ -1571,11 +1573,14 @@ function startBonus(){
     if(!bonusOn) return;
     c.style.display='none'; c.style.transition='none'; c.style.opacity='1';
     const ev=$('#endvid'); ev.innerHTML=''; ev.style.transition='none'; ev.style.opacity='0'; ev.style.display='flex';
-    const v=document.createElement('video'); v.playsInline=true; v.controls=true;
+    const v=bonusVid||document.createElement('video'); bonusVid=null; v.playsInline=true; v.controls=true; v.muted=false; try{ v.currentTime=0; }catch(e){}
     v.onerror=()=>{ ev.style.display='none'; ev.innerHTML=''; showBday(); };
     v.onended=()=>{ ev.style.display='none'; ev.innerHTML=''; showBday(); };
-    v.src=CONFIG.endingVideo2; ev.appendChild(v);
-    const p=v.play(); if(p&&p.catch)p.catch(()=>{});
+    if(!v.getAttribute('src')) v.src=CONFIG.endingVideo2;
+    ev.appendChild(v);
+    // 若瀏覽器仍擋自動播放：畫面中央出現大按鈕，點一下就播
+    const showTap=()=>{ if(ev.querySelector('.tapplay')) return; const b=document.createElement('button'); b.className='tapplay'; b.textContent='▶ 點一下播放'; b.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;padding:14px 22px;font:inherit;font-size:1.1rem;color:#ffec27;background:#1d2b53;border:3px solid #ffec27;cursor:pointer'; b.onclick=()=>{ b.remove(); v.play().catch(()=>{}); }; ev.appendChild(b); v.addEventListener('play',()=>b.remove(),{once:true}); };
+    const p=v.play(); if(p&&p.catch)p.catch(showTap);
     requestAnimationFrame(()=>requestAnimationFrame(()=>{ ev.style.transition='opacity 1.2s'; ev.style.opacity='1'; }));
   },1400);
 }
